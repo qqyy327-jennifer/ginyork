@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>巡檢打卡系統</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header .icon { font-size: 48px; display: block; margin-bottom: 8px; }
+    .header h1 { font-size: 22px; color: #1a1a2e; font-weight: 700; }
+    .header p { font-size: 13px; color: #888; margin-top: 4px; }
+    .qr-info {
+      background: #e8f4fd;
+      border: 1.5px solid #90caf9;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .qr-info .label { font-size: 11px; color: #1976d2; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .qr-info .value { font-size: 16px; color: #1a1a2e; font-weight: 600; }
+    .qr-info .qr-code-raw { font-size: 11px; color: #777; margin-top: 4px; word-break: break-all; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
+    .field label .required { color: #e53935; margin-left: 2px; }
+    .field select, .field textarea {
+      width: 100%;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 16px;
+      color: #1a1a2e;
+      background: #fafafa;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+    .field select:focus, .field textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+      background: #fff;
+    }
+    .field textarea { resize: vertical; min-height: 88px; font-family: inherit; }
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+    .submit-btn:active { transform: scale(0.98); }
+    .submit-btn:hover  { background: #1557b0; }
+    .submit-btn:disabled { background: #aaa; cursor: not-allowed; transform: none; }
+    .success-view { display: none; text-align: center; padding: 12px 0 8px; }
+    .success-view .check-icon { font-size: 64px; display: block; margin-bottom: 12px; }
+    .success-view h2 { font-size: 22px; color: #2e7d32; margin-bottom: 8px; }
+    .success-view p { font-size: 14px; color: #555; line-height: 1.6; }
+    .success-view .summary-box {
+      background: #f1f8e9; border: 1px solid #c8e6c9; border-radius: 8px;
+      padding: 14px; margin: 16px 0 0; text-align: left;
+    }
+    .summary-box .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+    .summary-box .row:last-child { margin-bottom: 0; }
+    .summary-box .row .key { color: #888; }
+    .summary-box .row .val { color: #1a1a2e; font-weight: 600; }
+    .reset-btn {
+      display: inline-block; margin-top: 20px; padding: 10px 24px;
+      background: #f5f5f5; color: #333; border: 1.5px solid #ddd;
+      border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .reset-btn:hover { background: #e8e8e8; }
+    .error-msg {
+      display: none; background: #fdecea; border: 1px solid #ef9a9a;
+      border-radius: 8px; padding: 12px 14px; margin-top: 12px;
+      font-size: 13px; color: #c62828;
+    }
+    .no-qr-warning {
+      background: #fff3e0; border: 1.5px solid #ffcc80; border-radius: 10px;
+      padding: 14px 16px; margin-bottom: 20px; font-size: 14px;
+      color: #e65100; text-align: center;
+    }
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .device-id-note { font-size: 11px; color: #aaa; text-align: center; margin-top: 16px; }
+  </style>
+</head>
+<body>
+<div class="card" id="mainCard">
+  <div class="header">
+    <span class="icon">📋</span>
+    <h1>巡檢打卡系統</h1>
+    <p>請選擇姓名並確認任務後送出</p>
+  </div>
+
+  <div id="formView">
+    <div id="qrInfoBlock" class="qr-info" style="display:none;">
+      <div class="label">📍 巡檢項目</div>
+      <div class="value" id="descDisplay"></div>
+      <div class="qr-code-raw" id="qrCodeDisplay"></div>
+    </div>
+    <div id="noQrWarning" class="no-qr-warning" style="display:none;">
+      ⚠️ 未偵測到有效的 QR 碼資訊，請重新掃描
+    </div>
+
+    <div class="field">
+      <label>姓名 <span class="required">*</span></label>
+      <select id="nameSelect">
+        <option value="">-- 載入員工名單中... --</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>備註（選填）</label>
+      <textarea id="notesInput" placeholder="例如：機台已確認關閉，電源燈已熄滅…"></textarea>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitForm()">確認送出</button>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="device-id-note" id="deviceIdNote"></div>
+  </div>
+
+  <div class="success-view" id="successView">
+    <span class="check-icon">✅</span>
+    <h2>打卡成功！</h2>
+    <p>紀錄已寫入系統，感謝您完成巡檢。</p>
+    <div class="summary-box">
+      <div class="row"><span class="key">姓名</span>     <span class="val" id="s_name"></span></div>
+      <div class="row"><span class="key">巡檢項目</span> <span class="val" id="s_qr"></span></div>
+      <div class="row"><span class="key">時間</span>     <span class="val" id="s_time"></span></div>
+      <div class="row"><span class="key">備註</span>     <span class="val" id="s_notes"></span></div>
+    </div>
+    <button class="reset-btn" onclick="resetForm()">再次打卡</button>
+  </div>
+</div>
+
+<script>
+// =============================================
+// ★ 請將此處換成你的 GAS 部署 URL ★
+// =============================================
+const GAS_URL = 'https://script.google.com/a/macros/ginyork.com/s/AKfycbxXH6gqFwUHqSA1CV1O81vxtwRNCquNCo2wqI3P86t4eZuGGCvJR2DK5wfR5qxXz-jT/exec';
+
+// ── 裝置 ID ──
+function getDeviceId() {
+  const key = 'audit_device_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = 'DEV-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2,6).toUpperCase();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+const DEVICE_ID = getDeviceId();
+
+// ── URL 參數 ──
+function getParam(name) {
+  return new URLSearchParams(window.location.search).get(name) || '';
+}
+const QR_CODE     = getParam('qr');
+const DESCRIPTION = getParam('desc') ? decodeURIComponent(getParam('desc')) : '';
+
+// ── 初始化 ──
+window.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('deviceIdNote').textContent = '裝置 ID：' + DEVICE_ID;
+
+  if (QR_CODE) {
+    document.getElementById('qrInfoBlock').style.display = 'block';
+    document.getElementById('descDisplay').textContent   = DESCRIPTION || QR_CODE;
+    document.getElementById('qrCodeDisplay').textContent = 'QR：' + QR_CODE;
+  } else {
+    document.getElementById('noQrWarning').style.display = 'block';
+  }
+
+  loadEmployees();
+});
+
+// ── 載入員工名單（透過 GAS API，不用 google.script.run）──
+function loadEmployees() {
+  fetch(GAS_URL + '?action=employees', { credentials: 'omit' })
+    .then(function(r) { return r.json(); })
+    .then(function(employees) {
+      const select = document.getElementById('nameSelect');
+      select.innerHTML = '<option value="">-- 請選擇姓名 --</option>';
+      employees.forEach(function(name) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+    })
+    .catch(function(err) {
+      document.getElementById('nameSelect').innerHTML = '<option value="">（載入失敗，請重新整理）</option>';
+      showError('員工名單載入失敗，請重新整理頁面');
+    });
+}
+
+// ── 送出表單 ──
+function submitForm() {
+  const name  = document.getElementById('nameSelect').value.trim();
+  const notes = document.getElementById('notesInput').value.trim();
+  hideError();
+
+  if (!name)    { showError('請先選擇姓名'); return; }
+  if (!QR_CODE) { showError('找不到 QR 碼資訊，請重新掃描'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>送出中…';
+
+  const params = new URLSearchParams({
+    action:   'submit',
+    name:     name,
+    deviceId: DEVICE_ID,
+    qr:       QR_CODE,
+    notes:    notes
+  });
+
+  fetch(GAS_URL + '?' + params.toString(), { credentials: 'omit' })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showSuccess(name, QR_CODE, DESCRIPTION || QR_CODE, result.timestamp, notes);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '確認送出';
+        showError('送出失敗：' + (result.error || '未知錯誤'));
+      }
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '確認送出';
+      showError('網路錯誤，請重試');
+    });
+}
+
+function showSuccess(name, qrCode, desc, timestamp, notes) {
+  document.getElementById('formView').style.display    = 'none';
+  document.getElementById('successView').style.display = 'block';
+  document.getElementById('s_name').textContent  = name;
+  document.getElementById('s_qr').textContent    = desc || qrCode;
+  document.getElementById('s_time').textContent  = timestamp;
+  document.getElementById('s_notes').textContent = notes || '（無）';
+}
+
+function resetForm() {
+  document.getElementById('successView').style.display = 'none';
+  document.getElementById('formView').style.display    = 'block';
+  document.getElementById('nameSelect').value = '';
+  document.getElementById('notesInput').value = '';
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.textContent = '確認送出';
+  hideError();
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('errorMsg').style.display = 'none';
+}
+</script>
+</body>
+</html>
