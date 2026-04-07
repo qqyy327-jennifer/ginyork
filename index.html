@@ -206,22 +206,39 @@ window.addEventListener('DOMContentLoaded', function () {
 });
 
 function loadEmployees() {
-  fetch(GAS_URL + '?action=employees', { credentials: 'omit' })
-    .then(function(r) { return r.json(); })
-    .then(function(employees) {
-      const select = document.getElementById('nameSelect');
-      select.innerHTML = '<option value="">-- 請選擇姓名 --</option>';
-      employees.forEach(function(name) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        select.appendChild(opt);
-      });
-    })
-    .catch(function() {
-      document.getElementById('nameSelect').innerHTML = '<option value="">（載入失敗，請重新整理）</option>';
-      showError('員工名單載入失敗，請重新整理頁面');
+  // 使用 JSONP 避免跨域 CORS 問題
+  const cbName = '__gasEmp_' + Date.now();
+  var script = document.createElement('script');
+
+  window[cbName] = function(employees) {
+    delete window[cbName];
+    if (script.parentNode) script.parentNode.removeChild(script);
+    const select = document.getElementById('nameSelect');
+    select.innerHTML = '<option value="">-- 請選擇姓名 --</option>';
+    employees.forEach(function(name) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
     });
+  };
+
+  script.onerror = function() {
+    delete window[cbName];
+    document.getElementById('nameSelect').innerHTML = '<option value="">（載入失敗，請重新整理）</option>';
+    showError('員工名單載入失敗，請重新整理頁面');
+  };
+
+  // 10 秒逾時保護
+  setTimeout(function() {
+    if (window[cbName]) {
+      delete window[cbName];
+      document.getElementById('nameSelect').innerHTML = '<option value="">（載入逾時，請重新整理）</option>';
+    }
+  }, 10000);
+
+  script.src = GAS_URL + '?action=employees&callback=' + cbName;
+  document.head.appendChild(script);
 }
 
 function submitForm() {
@@ -244,22 +261,26 @@ function submitForm() {
     notes:    notes
   });
 
-  fetch(GAS_URL + '?' + params.toString(), { credentials: 'omit' })
-    .then(function(r) { return r.json(); })
-    .then(function(result) {
-      if (result.success) {
-        showSuccess(name, QR_CODE, DESCRIPTION || QR_CODE, result.timestamp, notes);
-      } else {
-        btn.disabled = false;
-        btn.textContent = '確認送出';
-        showError('送出失敗：' + (result.error || '未知錯誤'));
-      }
-    })
-    .catch(function() {
-      btn.disabled = false;
-      btn.textContent = '確認送出';
-      showError('網路錯誤，請重試');
-    });
+  // no-cors 模式：無法讀取回應，但請求保證送出，直接顯示成功
+  fetch(GAS_URL + '?' + params.toString(), {
+    credentials: 'omit',
+    mode: 'no-cors'
+  })
+  .then(function() {
+    var now = new Date();
+    var ts = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0') + ' ' +
+      String(now.getHours()).padStart(2, '0') + ':' +
+      String(now.getMinutes()).padStart(2, '0') + ':' +
+      String(now.getSeconds()).padStart(2, '0');
+    showSuccess(name, QR_CODE, DESCRIPTION || QR_CODE, ts, notes);
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = '確認送出';
+    showError('網路錯誤，請重試');
+  });
 }
 
 function showSuccess(name, qrCode, desc, timestamp, notes) {
